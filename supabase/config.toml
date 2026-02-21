@@ -1,1 +1,7 @@
 project_id = "eipkjeuohornktqwqlyx"
+
+[functions.gmail-callback]
+verify_jwt = false
+
+[functions.email-hook]
+verify_jwt = false

@@ -76,6 +76,8 @@ serve(async (req) => {
 </body>
 </html>`;
 
+  console.log("Sending OTP email to:", user.email, "type:", email_data.email_action_type);
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -91,9 +93,11 @@ serve(async (req) => {
       }),
     });
 
+    const responseBody = await res.text();
+    console.log("Resend response status:", res.status, "body:", responseBody);
+
     if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Resend error:", errorText);
+      console.error("Resend API error:", res.status, responseBody);
     }
 
     return new Response(JSON.stringify({}), {
