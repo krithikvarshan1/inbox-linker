@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Link2, Mail, AlertCircle, CheckCircle2, ExternalLink, Trash2 } from 'lucide-react';
+import { Link2, Mail, AlertCircle, CheckCircle2, ExternalLink, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
 interface ConnectedAccount {
   id: string;
   provider: string;
@@ -20,12 +20,28 @@ export default function Connections() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [connectingGmail, setConnectingGmail] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (user) {
       fetchAccounts();
     }
   }, [user]);
+
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    if (success === 'gmail') {
+      toast.success('Gmail account connected successfully!');
+      fetchAccounts();
+      setSearchParams({});
+    }
+    if (error) {
+      toast.error(error);
+      setSearchParams({});
+    }
+  }, [searchParams]);
 
   const fetchAccounts = async () => {
     const { data, error } = await supabase
@@ -42,12 +58,28 @@ export default function Connections() {
     setLoading(false);
   };
 
-  const handleConnectGmail = () => {
-    toast.info('Gmail OAuth integration requires Google Cloud Console setup. See documentation for details.');
+  const handleConnectGmail = async () => {
+    if (!user) return;
+    setConnectingGmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gmail-auth', {
+        body: { user_id: user.id, redirect_url: window.location.origin },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error('Failed to generate OAuth URL');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start Gmail connection');
+    } finally {
+      setConnectingGmail(false);
+    }
   };
 
   const handleConnectOutlook = () => {
-    toast.info('Outlook OAuth integration requires Azure AD setup. See documentation for details.');
+    toast.info('Outlook integration coming soon.');
   };
 
   const handleDisconnect = async (account: ConnectedAccount) => {
@@ -183,9 +215,13 @@ export default function Connections() {
                     <p className="text-sm text-muted-foreground">Connect your Google account</p>
                   </div>
                 </div>
-                <Button className="w-full" variant="outline">
-                  <Link2 className="w-4 h-4 mr-2" />
-                  Connect Gmail
+                <Button className="w-full" variant="outline" disabled={connectingGmail}>
+                  {connectingGmail ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Link2 className="w-4 h-4 mr-2" />
+                  )}
+                  {connectingGmail ? 'Connecting...' : 'Connect Gmail'}
                 </Button>
               </CardContent>
             </Card>
