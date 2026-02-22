@@ -6,22 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Mail, ArrowRight, Loader2, CheckCircle2, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 
-type AuthStep = 'email' | 'otp' | 'success';
-
 export default function Auth() {
-  const { user, signInWithOtp, verifyOtp } = useAuth();
+  const { user, signInWithOtp } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState<AuthStep>('email');
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -29,10 +25,10 @@ export default function Auth() {
     }
   }, [user, navigate]);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError('');
-    
+
     const result = emailSchema.safeParse(email);
     if (!result.success) {
       setEmailError(result.error.errors[0].message);
@@ -44,32 +40,12 @@ export default function Auth() {
     setLoading(false);
 
     if (error) {
-      toast.error(error.message || 'Failed to send OTP');
+      toast.error(error.message || 'Failed to send magic link');
       return;
     }
 
-    toast.success('OTP sent to your email!');
-    setStep('otp');
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp.length !== 6) {
-      toast.error('Please enter the complete 6-digit code');
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await verifyOtp(email, otp);
-    setLoading(false);
-
-    if (error) {
-      toast.error(error.message || 'Invalid OTP. Please try again.');
-      setOtp('');
-      return;
-    }
-
-    setStep('success');
-    setTimeout(() => navigate('/dashboard'), 1500);
+    setSent(true);
+    toast.success('Magic link sent! Check your email.');
   };
 
   return (
@@ -86,20 +62,18 @@ export default function Auth() {
         <Card className="glass-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <CardHeader className="text-center pb-2">
             <CardTitle className="font-display text-2xl">
-              {step === 'email' && 'Welcome to MailFlow'}
-              {step === 'otp' && 'Enter Verification Code'}
-              {step === 'success' && 'Welcome Back!'}
+              {sent ? 'Check Your Email' : 'Welcome to MailFlow'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              {step === 'email' && 'Sign in or create an account with your email'}
-              {step === 'otp' && `We sent a 6-digit code to ${email}`}
-              {step === 'success' && 'Redirecting you to your dashboard...'}
+              {sent
+                ? `We sent a magic link to ${email}. Click it to sign in.`
+                : 'Sign in or create an account with your email'}
             </CardDescription>
           </CardHeader>
 
           <CardContent className="pt-4">
-            {step === 'email' && (
-              <form onSubmit={handleSendOtp} className="space-y-4">
+            {!sent ? (
+              <form onSubmit={handleSendMagicLink} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
@@ -127,65 +101,29 @@ export default function Auth() {
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      Continue
+                      Send Magic Link
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}
                 </Button>
               </form>
-            )}
-
-            {step === 'otp' && (
+            ) : (
               <div className="space-y-6">
-                <div className="flex flex-col items-center gap-4">
-                  <InputOTP
-                    maxLength={6}
-                    value={otp}
-                    onChange={setOtp}
-                    onComplete={handleVerifyOtp}
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
+                <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center animate-scale-in">
+                    <CheckCircle2 className="w-8 h-8 text-success" />
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Click the link in your email to sign in. You can close this tab.
+                  </p>
                 </div>
-
-                <Button
-                  onClick={handleVerifyOtp}
-                  className="w-full primary-gradient"
-                  disabled={loading || otp.length !== 6}
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Verify Code'
-                  )}
-                </Button>
-
                 <button
                   type="button"
-                  onClick={() => {
-                    setStep('email');
-                    setOtp('');
-                  }}
+                  onClick={() => setSent(false)}
                   className="text-sm text-muted-foreground hover:text-foreground w-full text-center transition-colors"
                 >
                   Use a different email
                 </button>
-              </div>
-            )}
-
-            {step === 'success' && (
-              <div className="flex flex-col items-center gap-4 py-4">
-                <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center animate-scale-in">
-                  <CheckCircle2 className="w-8 h-8 text-success" />
-                </div>
-                <p className="text-muted-foreground">Authentication successful!</p>
               </div>
             )}
           </CardContent>
