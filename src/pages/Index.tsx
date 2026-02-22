@@ -36,7 +36,7 @@ const features = [
 ];
 
 const steps = [
-  'Sign up with OTP verification',
+  'Sign up with a magic link',
   'Add sender email addresses to track',
   'Connect your Gmail or Outlook account',
   'Watch your spreadsheets populate automatically',
